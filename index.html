@@ -11,25 +11,26 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     <style>
         :root {
-            --bg-color: #f4f6f9;
+            --bg-color: #f4f7fb;
             --card-bg: #ffffff;
-            --card-border: #e2e8f0;
+            --card-border: #dce5f1;
             --accent-green: #10b981;
             --accent-yellow: #f59e0b;
             --accent-pink: #ef4444;
             --accent-blue: #2563eb;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
-            --input-bg: #f8fafc;
+            --text-main: #10213d;
+            --text-muted: #60708a;
+            --input-bg: #f7f9fc;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg-color);
+            background: linear-gradient(135deg, #f7f9fd 0%, #eef3fa 100%);
             color: var(--text-main);
             margin: 0;
             padding: 16px;
-            box-sizing: border-box;
         }
 
         .container {
@@ -43,9 +44,9 @@
         .card {
             background-color: var(--card-bg);
             border-radius: 12px;
-            padding: 16px;
+            padding: 14px 16px;
             border: 1px solid var(--card-border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 6px 18px -12px rgba(15, 35, 65, 0.28);
         }
 
         .section-title {
@@ -58,10 +59,10 @@
             justify-content: space-between;
         }
 
-        /* 顶部紧凑双栏布局 */
+        /* 顶部信息区：输入面板更宽，预测卡片更紧凑 */
         .top-row {
             display: grid;
-            grid-template-columns: 380px 1fr;
+            grid-template-columns: minmax(460px, 500px) 1fr;
             gap: 16px;
             align-items: stretch;
         }
@@ -72,18 +73,19 @@
 
         /* 预设按钮组 */
         .preset-group {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
             gap: 6px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
+            margin-top: 10px;
         }
 
         .preset-btn {
-            flex: 1;
-            min-width: 60px;
-            padding: 5px 2px;
+            min-width: 0;
+            min-height: 30px;
+            padding: 5px 3px;
             font-size: 12px;
             font-weight: 600;
+            white-space: nowrap;
             background: var(--input-bg);
             border: 1px solid var(--card-border);
             border-radius: 6px;
@@ -91,6 +93,10 @@
             cursor: pointer;
             transition: all 0.2s;
             text-align: center;
+        }
+
+        @media (max-width: 560px) {
+            .preset-group { grid-template-columns: repeat(4, minmax(0, 1fr)); }
         }
 
         .preset-btn:hover {
@@ -154,15 +160,14 @@
         .tiers-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            height: calc(100% - 28px);
+            gap: 12px;
         }
 
         .tier-card {
             background: var(--input-bg);
-            border: 2px solid var(--card-border);
-            border-radius: 10px;
-            padding: 12px 16px;
+            border: 1px solid var(--card-border);
+            border-radius: 9px;
+            padding: 10px 14px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -184,7 +189,7 @@
             font-size: 14px;
             font-weight: 700;
             color: var(--text-main);
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .tier-cost {
@@ -196,7 +201,7 @@
         .tier-info {
             font-size: 12px;
             color: var(--text-muted);
-            line-height: 1.7;
+            line-height: 1.5;
         }
 
         .tier-info span {
@@ -277,15 +282,6 @@
         <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
             <div>
                 <div class="section-title" style="margin-bottom:8px;">⚙️ 数据输入与运势预设</div>
-                <!-- 5 个预设快捷按钮 -->
-                <div class="preset-group">
-                    <button class="preset-btn" onclick="applyPreset(0.5, '非酋')">非酋 0.5%</button>
-                    <button class="preset-btn" onclick="applyPreset(0.8, '小黑')">小黑 0.8%</button>
-                    <button class="preset-btn active" id="btnPresetDefault" onclick="applyPreset(1.0, '标准')">标准 1%</button>
-                    <button class="preset-btn" onclick="applyPreset(1.2, '小欧')">小欧 1.2%</button>
-                    <button class="preset-btn" onclick="applyPreset(1.5, '欧皇')">欧皇 1.5%</button>
-                </div>
-
                 <div class="input-grid">
                     <div>
                         <label for="totalPulls">总抽数</label>
@@ -300,6 +296,17 @@
 
             <div class="prob-badge">
                 当前出橙概率：<span id="probVal">1.000%</span>
+            </div>
+
+            <!-- 概率下方的运势预设快捷按钮 -->
+            <div class="preset-group">
+                <button class="preset-btn" onclick="applyPreset(0.5, '非酋', this)">非酋 0.5%</button>
+                <button class="preset-btn" onclick="applyPreset(0.8, '小黑', this)">小黑 0.8%</button>
+                <button class="preset-btn" onclick="applyPreset(0.9, '稍黑', this)">稍黑 0.9%</button>
+                <button class="preset-btn active" id="btnPresetDefault" onclick="applyPreset(1.0, '标准', this)">标准 1%</button>
+                <button class="preset-btn" onclick="applyPreset(1.1, '稍欧', this)">稍欧 1.1%</button>
+                <button class="preset-btn" onclick="applyPreset(1.2, '小欧', this)">小欧 1.2%</button>
+                <button class="preset-btn" onclick="applyPreset(1.5, '欧皇', this)">欧皇 1.5%</button>
             </div>
         </div>
 
@@ -413,10 +420,10 @@
         }
     });
 
-    // 应用 5 个运势预设
-    function applyPreset(probPercent, name) {
+    // 应用运势预设
+    function applyPreset(probPercent, name, button) {
         document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
+        button.classList.add('active');
 
         const totalPulls = 10000;
         const orangeCards = Math.round(totalPulls * (probPercent / 100));
