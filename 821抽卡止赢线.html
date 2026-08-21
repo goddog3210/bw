@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>兑奖收益预测与 90 天成本累加综合分析</title>
+    <!-- 引入 Chart.js 及插件 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-pink: #ef4444;
+            --accent-blue: #2563eb;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --input-bg: #f8fafc;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .section-title {
+            margin: 0 0 12px 0;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* 顶部紧凑双栏布局 */
+        .top-row {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        @media (max-width: 1100px) {
+            .top-row { grid-template-columns: 1fr; }
+        }
+
+        /* 预设按钮组 */
+        .preset-group {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            flex: 1;
+            min-width: 60px;
+            padding: 5px 2px;
+            font-size: 12px;
+            font-weight: 600;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            background: #ffffff;
+        }
+
+        .preset-btn.active {
+            background: var(--accent-blue);
+            color: #ffffff;
+            border-color: var(--accent-blue);
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        input {
+            width: 100%;
+            padding: 6px 10px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            color: var(--text-main);
+            box-sizing: border-box;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            background-color: #fff;
+        }
+
+        .prob-badge {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: var(--accent-blue);
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        /* 2 档位精简平铺 */
+        .tiers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            height: calc(100% - 28px);
+        }
+
+        .tier-card {
+            background: var(--input-bg);
+            border: 2px solid var(--card-border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tier-card:hover {
+            border-color: #cbd5e1;
+        }
+
+        .tier-card.active {
+            border-color: var(--accent-blue);
+            background: #ffffff;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+        }
+
+        .tier-header {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+
+        .tier-cost {
+            color: var(--accent-yellow);
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .tier-info {
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.7;
+        }
+
+        .tier-info span {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        /* 视角模式切换 */
+        .mode-switch {
+            display: inline-flex;
+            background-color: var(--input-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 2px;
+            gap: 2px;
+        }
+
+        .mode-btn {
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+
+        .mode-btn.active {
+            background-color: #ffffff;
+            color: var(--accent-blue);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* 放大版图表区域 */
+        .chart-container {
+            position: relative;
+            height: 580px;
+            width: 100%;
+        }
+
+        .legend-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid var(--card-border);
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .legend-group {
+            display: flex;
+            gap: 16px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 1. 顶层：参数输入与 2 档成本预测（优化空间布局） -->
+    <div class="top-row">
+        <!-- 预设与数据输入面板 -->
+        <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div class="section-title" style="margin-bottom:8px;">⚙️ 数据输入与运势预设</div>
+                <!-- 5 个预设快捷按钮 -->
+                <div class="preset-group">
+                    <button class="preset-btn" onclick="applyPreset(0.5, '非酋')">非酋 0.5%</button>
+                    <button class="preset-btn" onclick="applyPreset(0.8, '小黑')">小黑 0.8%</button>
+                    <button class="preset-btn active" id="btnPresetDefault" onclick="applyPreset(1.0, '标准')">标准 1%</button>
+                    <button class="preset-btn" onclick="applyPreset(1.2, '小欧')">小欧 1.2%</button>
+                    <button class="preset-btn" onclick="applyPreset(1.5, '欧皇')">欧皇 1.5%</button>
+                </div>
+
+                <div class="input-grid">
+                    <div>
+                        <label for="totalPulls">总抽数</label>
+                        <input type="number" id="totalPulls" value="10000" min="1" oninput="clearPresetActive(); calculate();">
+                    </div>
+                    <div>
+                        <label for="orangeCards">橙卡数</label>
+                        <input type="number" id="orangeCards" value="100" min="0" oninput="clearPresetActive(); calculate();">
+                    </div>
+                </div>
+            </div>
+
+            <div class="prob-badge">
+                当前出橙概率：<span id="probVal">1.000%</span>
+            </div>
+        </div>
+
+        <!-- 2 档位预测面板 -->
+        <div class="card">
+            <div class="section-title">
+                <span>📊 2 档成本预测</span>
+                <span style="font-size:12px; font-weight:normal; color:var(--text-muted);">点击卡片可切换下方图表视角</span>
+            </div>
+            <div class="tiers-grid" id="tiersContainer"></div>
+        </div>
+    </div>
+
+    <!-- 2. 底层：收益曲线图像（最大化区域） -->
+    <div class="card">
+        <div class="section-title" style="margin-bottom: 10px;">
+            <span id="chartTitle">📈 兑付收益综合分析</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="mode-switch">
+                    <button class="mode-btn active" id="btnModeSingle" onclick="switchMode('single')">单套/单次兑换视角</button>
+                    <button class="mode-btn" id="btnMode90Days" onclick="switchMode('90days')">📅 90天累计投入与收益视角</button>
+                </div>
+                <span style="font-size: 11px; color: var(--text-muted);">💡 拖拽/滚轮平移缩放</span>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="rewardChart"></canvas>
+        </div>
+
+        <div class="legend-bar" id="legendBar">
+            <!-- 动态填充图例与结论 -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. 计算单套奖励金额 (1-indexed)
+    function getSetReward(n) {
+        if (n <= 0) return 0;
+        let reward = 2000;
+        let keepCount = 0;
+
+        for (let i = 1; i <= n; i++) {
+            if (i === 1) {
+                reward = 2000;
+            } else {
+                if (reward < 20000 && keepCount === 0) {
+                    reward = reward * 1.05;
+                    if (reward >= 20000) {
+                        reward = 20000;
+                        keepCount = 1;
+                    }
+                } else if (keepCount > 0 && keepCount < 5) {
+                    reward = 20000;
+                    keepCount++;
+                } else {
+                    reward = Math.max(1000, reward * 0.975);
+                }
+            }
+        }
+        return reward;
+    }
+
+    // 预生成单套序列
+    const singleRewards = [];
+    const labels172 = [];
+    for (let i = 1; i <= 200; i++) {
+        const r = getSetReward(i);
+        singleRewards.push(Number(r.toFixed(2)));
+        labels172.push(`第 ${i} 套`);
+        if (r === 1000 && i >= 172) break;
+    }
+
+    // 全局状态
+    let viewMode = 'single'; 
+    let selectedTierIndex = 1; // 默认选中档位 2
+    let tiersDataCache = [];
+    let detailed90DaysData = [];
+
+    // 初始化 Chart.js
+    const ctx = document.getElementById('rewardChart').getContext('2d');
+    let chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#f1f5f9',
+                    borderColor: '#334155',
+                    borderWidth: 1,
+                    padding: 12,
+                    boxPadding: 6
+                },
+                zoom: {
+                    pan: { enabled: true, mode: 'x' },
+                    zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
+                },
+                annotation: { annotations: {} }
+            },
+            scales: {
+                x: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', maxTicksLimit: 25 } },
+                y: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', callback: val => '$' + val.toLocaleString() } }
+            }
+        }
+    });
+
+    // 应用 5 个运势预设
+    function applyPreset(probPercent, name) {
+        document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        const totalPulls = 10000;
+        const orangeCards = Math.round(totalPulls * (probPercent / 100));
+
+        document.getElementById('totalPulls').value = totalPulls;
+        document.getElementById('orangeCards').value = orangeCards;
+
+        calculate();
+    }
+
+    function clearPresetActive() {
+        document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+    }
+
+    function findStopLines(cost) {
+        let line1 = null;
+        let line2 = null;
+
+        for (let i = 0; i < singleRewards.length; i++) {
+            if (singleRewards[i] >= cost) { line1 = i + 1; break; }
+        }
+        for (let i = singleRewards.length - 1; i >= 0; i--) {
+            if (singleRewards[i] >= cost) { line2 = i + 1; break; }
+        }
+        return { line1, line2 };
+    }
+
+    function calculate() {
+        const totalPulls = parseFloat(document.getElementById('totalPulls').value) || 0;
+        const orangeCards = parseFloat(document.getElementById('orangeCards').value) || 0;
+
+        if (totalPulls <= 0) return;
+
+        const prob = orangeCards / totalPulls;
+        const probPercent = (prob * 100).toFixed(3);
+        document.getElementById('probVal').innerText = `${probPercent}%`;
+
+        // 仅保留档位 1 与档位 2
+        const tiers = [
+            { name: '档位 1【正常满抽 650】', pulls: 650, baseCost: 6000 },
+            { name: '档位 2【周年满抽 1080】', pulls: 1080, baseCost: 10000 }
+        ];
+
+        tiersDataCache = [];
+        let html = '';
+
+        tiers.forEach((tier, index) => {
+            const orangeCount = tier.pulls * prob;
+            const setNum = orangeCount / 6;
+            const realCost = setNum > 0 ? (tier.baseCost / setNum) : 0;
+            const { line1, line2 } = findStopLines(realCost);
+
+            tiersDataCache.push({ name: tier.name, pulls: tier.pulls, baseCost: tier.baseCost, realCost, setNum, prob, line1, line2 });
+
+            const isActive = index === selectedTierIndex ? 'active' : '';
+
+            html += `
+                <div class="tier-card ${isActive}" onclick="selectTier(${index})">
+                    <div>
+                        <div class="tier-header">${tier.name}</div>
+                        <div class="tier-cost">$${realCost.toFixed(2)} <span style="font-size:12px; font-weight:normal; color:var(--text-muted);">/ 套</span></div>
+                        <div class="tier-info" style="margin-top:6px;">
+                            每日产出：<span>${orangeCount.toFixed(2)}</span> 张 (${setNum.toFixed(2)} 套)
+                        </div>
+                    </div>
+                    <div class="tier-info" style="border-top: 1px dashed var(--card-border); padding-top: 6px; margin-top: 6px;">
+                        单套起盈线 (递增期)：<span style="color:var(--accent-green);">${line1 ? '第 ' + line1 + ' 套' : '无法回本'}</span><br>
+                        单套止损线 (衰减期)：<span style="color:var(--accent-pink);">${line2 ? '第 ' + line2 + ' 套' : '无法回本'}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        document.getElementById('tiersContainer').innerHTML = html;
+        updateChartDisplay();
+    }
+
+    function selectTier(index) {
+        selectedTierIndex = index;
+        calculate();
+    }
+
+    function switchMode(mode) {
+        viewMode = mode;
+        document.getElementById('btnModeSingle').classList.toggle('active', mode === 'single');
+        document.getElementById('btnMode90Days').classList.toggle('active', mode === '90days');
+        updateChartDisplay();
+    }
+
+    function updateChartDisplay() {
+        const activeTier = tiersDataCache[selectedTierIndex];
+        if (!activeTier) return;
+
+        if (viewMode === 'single') {
+            renderSingleView(activeTier);
+        } else {
+            render90DaysView(activeTier);
+        }
+    }
+
+    // 单套视角
+    function renderSingleView(tier) {
+        document.getElementById('chartTitle').innerText = `📈 单套成本与兑付曲线 (${tier.name})`;
+
+        chart.data.labels = labels172;
+        chart.data.datasets = [{
+            label: '单套兑付金额 ($)',
+            data: singleRewards,
+            borderColor: '#10b981',
+            borderWidth: 2.5,
+            pointRadius: 0,
+            pointHoverRadius: 6,
+            tension: 0.15,
+            segment: {
+                borderColor: ctx => {
+                    const val = ctx.p0.parsed.y;
+                    const index = ctx.p0DataIndex;
+                    if (val >= 20000) return '#f59e0b';
+                    if (index >= 53) {
+                        if (val <= 1000) return '#64748b';
+                        return '#ef4444';
+                    }
+                    return '#10b981';
+                }
+            }
+        }];
+
+        // 修改后的代码：
+        chart.options.plugins.tooltip.callbacks = {
+            title: (items) => items[0].label,
+            label: (item) => {
+                const setIndex = item.dataIndex + 1; // 当前第 N 套 (1-indexed)
+                
+                // 计算前 N 套的累计奖励总和
+                let sum = 0;
+                for (let i = 0; i < item.dataIndex + 1; i++) {
+                    sum += singleRewards[i];
+                }
+
+                return [
+                    ` 兑换奖励: $${item.raw.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
+                    ` 累计奖励: $${sum.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
+                ];
+            }
+        };
+
+        const annotations = {};
+        const { realCost, line1, line2 } = tier;
+
+        if (line1 && line2 && line1 <= line2) {
+            annotations.profitZone = {
+                type: 'box',
+                xMin: line1 - 1,
+                xMax: line2 - 1,
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                borderWidth: 0
+            };
+
+            annotations.costLine = {
+                type: 'line',
+                yMin: realCost,
+                yMax: realCost,
+                borderColor: '#94a3b8',
+                borderWidth: 1.5,
+                borderDash: [4, 4],
+                label: {
+                    display: true,
+                    content: `单套成本: $${realCost.toFixed(2)}`,
+                    position: 'start',
+                    backgroundColor: '#f8fafc',
+                    color: '#475569',
+                    font: { size: 11 }
+                }
+            };
+        }
+
+        chart.options.plugins.annotation.annotations = annotations;
+        chart.update();
+
+        document.getElementById('legendBar').innerHTML = `
+            <div class="legend-group">
+                <div class="legend-item"><div class="dot" style="background: var(--accent-green);"></div>递增期</div>
+                <div class="legend-item"><div class="dot" style="background: var(--accent-yellow);"></div>封顶保持期 ($20,000)</div>
+                <div class="legend-item"><div class="dot" style="background: var(--accent-pink);"></div>衰减期</div>
+                <div class="legend-item"><div class="dot" style="background: var(--text-muted);"></div>保底锁死 ($1,000)</div>
+            </div>
+            <div class="legend-group">
+                <span style="color:var(--text-muted); font-size:12px;">单套盈利区间：第 ${line1 || '-'} 套 ~ 第 ${line2 || '-'} 套</span>
+            </div>
+        `;
+    }
+
+    // 90天视角（精确计算 + 最大利润点明显标注）
+    function render90DaysView(tier) {
+        document.getElementById('chartTitle').innerText = `📅 90天成本累加 vs 真实累计套数收益综合图像 (${tier.name})`;
+
+        const labels90 = [];
+        const cumCosts = [];
+        const cumRewards = [];
+        const netProfits = [];
+        detailed90DaysData = [];
+
+        let currentCumCost = 0;
+        let cumSetsAccurate = 0;
+        let currentRedeemedCount = 0;
+        let totalRewardSum = 0;
+
+        let maxProfitDay = 1;
+        let maxProfitVal = -Infinity;
+
+        const dailySets = (tier.pulls * tier.prob) / 6.0;
+
+        for (let d = 1; d <= 90; d++) {
+            labels90.push(`第 ${d} 天`);
+            currentCumCost += tier.baseCost;
+            cumSetsAccurate += dailySets;
+
+            const integerSets = Math.floor(cumSetsAccurate);
+
+            while (currentRedeemedCount < integerSets) {
+                currentRedeemedCount++;
+                totalRewardSum += getSetReward(currentRedeemedCount);
+            }
+
+            const currentSetReward = integerSets > 0 ? getSetReward(integerSets) : 0;
+            const netProfit = totalRewardSum - currentCumCost;
+
+            cumCosts.push(currentCumCost);
+            cumRewards.push(Number(totalRewardSum.toFixed(2)));
+            netProfits.push(Number(netProfit.toFixed(2)));
+
+            detailed90DaysData.push({
+                day: d,
+                cumCost: currentCumCost,
+                cumSets: cumSetsAccurate.toFixed(2),
+                integerSets: integerSets,
+                lastSetReward: currentSetReward,
+                cumReward: totalRewardSum,
+                netProfit: netProfit
+            });
+
+            if (netProfit > maxProfitVal) {
+                maxProfitVal = netProfit;
+                maxProfitDay = d;
+            }
+        }
+
+        chart.data.labels = labels90;
+        chart.data.datasets = [
+            {
+                label: '累计投入成本 ($)',
+                data: cumCosts,
+                borderColor: '#ef4444',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                tension: 0
+            },
+            {
+                label: '累计兑奖收益 ($)',
+                data: cumRewards,
+                borderColor: '#2563eb',
+                borderWidth: 2.5,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                tension: 0.1
+            },
+            {
+                label: '累计净利润 ($)',
+                data: netProfits,
+                borderColor: '#10b981',
+                borderWidth: 2,
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                fill: true,
+                pointRadius: ctx => (ctx.dataIndex === maxProfitDay - 1 ? 7 : 0),
+                pointBackgroundColor: '#f59e0b',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                tension: 0.1
+            }
+        ];
+
+        // 🎯 精简 Tooltip
+        chart.options.plugins.tooltip.callbacks = {
+            title: (items) => `📅 第 ${items[0].dataIndex + 1} 天`,
+            label: (item) => {
+                if (item.datasetIndex !== 0) return null;
+                const d = detailed90DaysData[item.dataIndex];
+                const netSign = d.netProfit >= 0 ? '+$' : '-$';
+                
+               return [
+                    `• 累积成本: $${d.cumCost.toLocaleString()}`,
+                    `• 合计成套: ${d.cumSets} 套`,
+                    `• 第 ${d.integerSets} 套奖励: $${d.lastSetReward.toLocaleString()}`,
+                    `• 累计兑奖收益: $${d.cumReward.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`,
+                    `• 当前净利润: ${netSign}${Math.abs(d.netProfit).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`
+                ];
+            }
+        };
+
+        // 🎯 醒目标注最大利润点
+        const annotations = {
+            maxProfitLine: {
+                type: 'line',
+                xMin: maxProfitDay - 1,
+                xMax: maxProfitDay - 1,
+                borderColor: '#f59e0b',
+                borderWidth: 2,
+                borderDash: [3, 3],
+                label: {
+                    display: true,
+                    content: [
+                        `🏆 最大利润点: 第 ${maxProfitDay} 天`,
+                        `最高净利润: +$${maxProfitVal.toLocaleString(undefined, {maximumFractionDigits:0})}`
+                    ],
+                    position: 'top',
+                    backgroundColor: '#f59e0b',
+                    color: '#ffffff',
+                    font: { size: 11, weight: 'bold' },
+                    padding: 6,
+                    borderRadius: 6
+                }
+            }
+        };
+
+        chart.options.plugins.annotation.annotations = annotations;
+        chart.update();
+
+        document.getElementById('legendBar').innerHTML = `
+            <div class="legend-group">
+                <div class="legend-item"><div class="dot" style="background: #2563eb;"></div>累计兑奖收益</div>
+                <div class="legend-item"><div class="dot" style="background: #ef4444;"></div>累计投入成本 ($${tier.baseCost}/天)</div>
+                <div class="legend-item"><div class="dot" style="background: #10b981;"></div>累计净利润</div>
+            </div>
+            <div class="legend-group">
+                <span style="color:#d97706; font-size:13px; font-weight:600;">
+                    ⭐ 最佳止盈建议：在第 ${maxProfitDay} 天达到最高净利润 +$${maxProfitVal.toLocaleString(undefined, {maximumFractionDigits:2})}，之后继续投入净利润反而减少
+                </span>
+            </div>
+        `;
+    }
+
+    // 默认执行初始化
+    calculate();
+</script>
+</body>
+</html>
